@@ -1,0 +1,168 @@
+import { useEffect, useReducer, useRef, useState } from "react";
+import { db } from "../firebaseInit";
+import {
+  collection,
+  addDoc,
+  doc,
+  setDoc,
+  updateDoc,
+  getDocs,
+  onSnapshot,
+  deleteDoc,
+} from "firebase/firestore";
+
+//Blogging App using Hooks
+
+// function blogsReducer(state, action) {
+//   switch (action.type) {
+//     case "add":
+//       return [...state, action.blog];
+//     case "remove":
+//       return state.filter((blog, index) => index !== action.index);
+//     default:
+//       return [];
+//   }
+// }
+
+export default function Blog() {
+  //   const [title, setTitle] = useState("");
+  //   const [content, setContent] = useState("");
+  const [formData, setFormData] = useState({ title: "", content: "" });
+  const [blogs, setBlogs] = useState([]);
+  // const [blogs, dispatch] = useReducer(blogsReducer, []);
+  const titleRef = useRef();
+
+  //Passing the synthetic event as argument to stop refreshing the page on submit
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setBlogs([...blogs, { title: formData.title, content: formData.content }]);
+    // dispatch({
+    //   type: "add",
+    //   blog: { title: formData.title, content: formData.content },
+    // });
+    setFormData({ title: "", content: "" });
+    titleRef.current.focus();
+
+    const docRef = doc(collection(db, "blogs"));
+
+    await setDoc(docRef, {
+      title: formData.title,
+      content: formData.content,
+    });
+  }
+
+  async function removeBlog(i) {
+    // setBlogs(blogs.filter((item, index) => i !== index));
+    // dispatch({ type: "remove", index: i });
+    const docRef = doc(db, "blogs", i);
+    await deleteDoc(docRef);
+  }
+
+  useEffect(() => {
+    titleRef.current.focus();
+    // async function fetchData() {
+    //   const querySnapshot = await getDocs(collection(db, "blogs"));
+    //   const blogs = querySnapshot.docs.map((doc) => {
+    //     // doc.data() is never undefined for query doc snapshots
+    //     console.log(doc.data());
+    //     return { id: doc.id, ...doc.data() };
+    //   });
+    //   console.log(blogs);
+    //   setBlogs(blogs);
+    // }
+    // fetchData();
+    const unsub = onSnapshot(collection(db, "blogs"), (snapShot) => {
+      const blogs = snapShot.docs.map((doc) => {
+        // doc.data() is never undefined for query doc snapshots
+        console.log(doc.data());
+        return { id: doc.id, ...doc.data() };
+      });
+      console.log(blogs);
+      setBlogs(blogs);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (blogs.length && blogs[blogs.length - 1].title) {
+      document.title = blogs[blogs.length - 1].title;
+    } else {
+      document.title = "No Blogs!!!";
+    }
+  }, [blogs]);
+
+  return (
+    <>
+      {/* Heading of the page */}
+      <h1>Write a Blog!</h1>
+
+      {/* Division created to provide styling of section to the form */}
+      <div className="section">
+        {/* Form for to write the blog */}
+        <form onSubmit={handleSubmit}>
+          {/* Row component to create a row for first input field */}
+          <Row label="Title">
+            <input
+              className="input"
+              placeholder="Enter the Title of the Blog here.."
+              value={formData.title}
+              ref={titleRef}
+              onChange={(e) => {
+                setFormData({
+                  title: e.target.value,
+                  conten: formData.content,
+                });
+              }}
+            />
+          </Row>
+
+          {/* Row component to create a row for Text area field */}
+          <Row label="Content">
+            <textarea
+              className="input content"
+              placeholder="Content of the Blog goes here.."
+              value={formData.content}
+              required
+              onChange={(e) => {
+                setFormData({ title: formData.title, content: e.target.value });
+              }}
+            />
+          </Row>
+
+          {/* Button to submit the blog */}
+          <button className="btn">ADD</button>
+        </form>
+      </div>
+
+      <hr />
+
+      {/* Section where submitted blogs will be displayed */}
+      <h2> Blogs </h2>
+      {blogs.map((item, i) => (
+        <div className="blog" key={i}>
+          <h3>{item.title}</h3>
+          <p>{item.content}</p>
+          <div className="blog-btn">
+            <button onClick={() => removeBlog(item.id)} className="btn remove">
+              Delete
+            </button>
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+//Row component to introduce a new row section in the form
+function Row(props) {
+  const { label } = props;
+  return (
+    <>
+      <label>
+        {label}
+        <br />
+      </label>
+      {props.children}
+      <hr />
+    </>
+  );
+}
